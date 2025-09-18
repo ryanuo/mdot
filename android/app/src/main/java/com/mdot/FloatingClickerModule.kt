@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import android.util.Log
+import android.os.Build  // 添加这个导入
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
 
@@ -41,28 +42,65 @@ class FloatingClickerModule(private val reactContext: ReactApplicationContext) :
     @ReactMethod
     fun startFloatingWindowTest(promise: Promise) {
         try {
-            val context = reactContext.currentActivity ?: run {
-                promise.reject("NO_ACTIVITY", "No current activity")
-                return
-            }
+            // 使用 applicationContext 而不是 currentActivity
+            val context = reactContext.applicationContext
 
+            // 检查悬浮窗权限
             if (!Settings.canDrawOverlays(context)) {
                 promise.reject("NO_OVERLAY_PERMISSION", "Overlay permission not granted")
                 return
             }
 
-            val intent = Intent(context, FloatingWindowService::class.java)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startForegroundService(intent) // ⚠️ 必须用前台服务
+            // 检查无障碍服务是否启用
+            val hasAccessibilityPermission = checkAccessibilityServiceEnabled()
+            if (!hasAccessibilityPermission) {
+                Log.w(TAG, "Accessibility service not enabled, but continuing...")
+            }
 
-            Log.d("FloatingClicker", "FloatingWindowService started")
-            promise.resolve(true)
+            // 创建 Intent 启动服务
+            val intent = Intent(context, FloatingWindowService::class.java)
+
+            // 使用 applicationContext 启动前台服务
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+
+                Log.d(TAG, "FloatingWindowService started successfully")
+                promise.resolve(true)
+
+            } catch (e: SecurityException) {
+                Log.e(TAG, "SecurityException starting service", e)
+                promise.reject("SECURITY_ERROR", "无法启动前台服务: ${e.message}")
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception starting service", e)
+                promise.reject("START_ERROR", "启动服务失败: ${e.message}")
+            }
+
         } catch (e: Exception) {
-            Log.e("FloatingClicker", "Error starting service", e)
+            Log.e(TAG, "Error in startFloatingWindowTest", e)
             promise.reject("ERROR", e.message)
         }
     }
 
+    private fun checkAccessibilityServiceEnabled(): Boolean {
+        return try {
+            val context = reactContext.applicationContext
+            val enabledServices = Settings.Secure.getString(
+                context.contentResolver,
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            )
+            val packageName = context.packageName
+            val serviceName = "$packageName/.AccessibilityClickService"
+
+            enabledServices?.contains(serviceName) == true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking accessibility service", e)
+            false
+        }
+    }
 
     @ReactMethod
     fun stopFloatingWindow(promise: Promise) {

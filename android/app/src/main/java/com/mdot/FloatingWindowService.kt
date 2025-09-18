@@ -21,7 +21,7 @@ class FloatingWindowService : Service() {
     }
 
     private var windowManager: WindowManager? = null
-    private var floatingView: FrameLayout? = null
+    private var floatingView: View? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -32,10 +32,17 @@ class FloatingWindowService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service onStartCommand")
-        // 必须立即启动前台服务
-        startForeground(NOTIFICATION_ID, createNotification())
 
-        showFloatingWindow()
+        try {
+            // 必须立即启动前台服务
+            startForeground(NOTIFICATION_ID, createNotification())
+            showFloatingWindow()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in onStartCommand", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         return START_STICKY
     }
 
@@ -55,19 +62,23 @@ class FloatingWindowService : Service() {
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Service for managing floating buttons"
+                setShowBadge(false)
             }
             val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.createNotificationChannel(channel)
+            notificationManager?.createNotificationChannel(channel)
             Log.d(TAG, "Notification channel created")
         }
     }
 
     private fun createNotification(): Notification {
-        val intent = Intent(this, MainActivity::class.java)
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+
         Log.d(TAG, "Notification created")
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Floating Clicker Active")
@@ -75,90 +86,179 @@ class FloatingWindowService : Service() {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setAutoCancel(false)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }
 
     private fun showFloatingWindow() {
         Log.d(TAG, "Showing floating window")
-        if (floatingView != null) hideFloatingWindow()
 
-        floatingView = FrameLayout(this)
+        try {
+            if (floatingView != null) {
+                hideFloatingWindow()
+            }
 
-        val layoutParams = WindowManager.LayoutParams().apply {
-            type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_PHONE
+            // 创建一个简单的容器视图
+            floatingView = FrameLayout(this).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            }
 
-            flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+            val layoutParams = WindowManager.LayoutParams().apply {
+                // 窗口类型
+                type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                } else {
+                    @Suppress("DEPRECATION")
+                    WindowManager.LayoutParams.TYPE_PHONE
+                }
 
-            format = PixelFormat.TRANSLUCENT
-            width = WindowManager.LayoutParams.MATCH_PARENT
-            height = WindowManager.LayoutParams.MATCH_PARENT
-            gravity = Gravity.TOP or Gravity.START
+                // 窗口标志 - 关键修复点
+                flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+
+                format = PixelFormat.TRANSLUCENT
+
+                // 关键修复：使用具体尺寸而不是 MATCH_PARENT
+                width = WindowManager.LayoutParams.WRAP_CONTENT
+                height = WindowManager.LayoutParams.WRAP_CONTENT
+
+                // 初始位置
+                gravity = Gravity.TOP or Gravity.START
+                x = 100
+                y = 100
+            }
+
+            windowManager?.addView(floatingView, layoutParams)
+            Log.d(TAG, "Floating window added to WindowManager")
+
+            setupButtons(floatingView as FrameLayout)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing floating window", e)
+            stopSelf()
         }
-
-        windowManager?.addView(floatingView, layoutParams)
-        Log.d(TAG, "Floating window added to WindowManager")
-
-        setupButtons(floatingView!!)
     }
 
     private fun setupButtons(container: FrameLayout) {
-        val buttonNames = listOf("触发", "按钮2", "按钮3", "按钮4")
-        buttonNames.forEachIndexed { index, name ->
-            val btn = Button(this).apply {
-                text = name
-                textSize = 12f
-                setBackgroundColor(android.graphics.Color.parseColor("#007AFF"))
-                layoutParams = FrameLayout.LayoutParams(200, 120).apply {
-                    leftMargin = 50
-                    topMargin = 50 + index * 150
-                }
+        try {
+            val buttonNames = listOf("触发", "按钮2", "按钮3", "按钮4")
 
-                setOnClickListener {
-                    Log.d(TAG, "Button clicked: $name")
-                    // 这里可以执行对应操作
-                }
+            buttonNames.forEachIndexed { index, name ->
+                val btn = Button(this).apply {
+                    text = name
+                    textSize = 12f
+                    setBackgroundColor(android.graphics.Color.parseColor("#007AFF"))
+                    setTextColor(android.graphics.Color.WHITE)
 
-                setOnTouchListener(object : View.OnTouchListener {
-                    private var initialX = 0
-                    private var initialY = 0
-                    private var initialTouchX = 0f
-                    private var initialTouchY = 0f
-
-                    override fun onTouch(v: View, event: MotionEvent): Boolean {
-                        when (event.action) {
-                            MotionEvent.ACTION_DOWN -> {
-                                initialX = x.toInt()
-                                initialY = y.toInt()
-                                initialTouchX = event.rawX
-                                initialTouchY = event.rawY
-                                return true
-                            }
-                            MotionEvent.ACTION_MOVE -> {
-                                val deltaX = (event.rawX - initialTouchX).toInt()
-                                val deltaY = (event.rawY - initialTouchY).toInt()
-                                x = (initialX + deltaX).toFloat()
-                                y = (initialY + deltaY).toFloat()
-                                return true
-                            }
-                        }
-                        return false
+                    // 固定按钮大小
+                    layoutParams = FrameLayout.LayoutParams(200, 120).apply {
+                        leftMargin = 10
+                        topMargin = 10 + index * 130
                     }
-                })
+
+                    setOnClickListener {
+                        Log.d(TAG, "Button clicked: $name")
+                        handleButtonClick(name, index)
+                    }
+
+                    // 添加拖拽功能
+                    setOnTouchListener(createDragTouchListener())
+                }
+
+                container.addView(btn)
             }
-            container.addView(btn)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error setting up buttons", e)
+        }
+    }
+
+    private fun handleButtonClick(buttonName: String, index: Int) {
+        try {
+            when (index) {
+                0 -> {
+                    // 触发按钮 - 可以执行点击操作
+                    Log.d(TAG, "Trigger button clicked")
+                }
+                else -> {
+                    Log.d(TAG, "Button $buttonName clicked")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error handling button click", e)
+        }
+    }
+
+    private fun createDragTouchListener(): View.OnTouchListener {
+        return object : View.OnTouchListener {
+            private var initialX = 0
+            private var initialY = 0
+            private var initialTouchX = 0f
+            private var initialTouchY = 0f
+            private var isDragging = false
+
+            override fun onTouch(v: View, event: MotionEvent): Boolean {
+                return try {
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            initialX = (v.parent as View).x.toInt()
+                            initialY = (v.parent as View).y.toInt()
+                            initialTouchX = event.rawX
+                            initialTouchY = event.rawY
+                            isDragging = false
+                            true
+                        }
+                        MotionEvent.ACTION_MOVE -> {
+                            val deltaX = (event.rawX - initialTouchX).toInt()
+                            val deltaY = (event.rawY - initialTouchY).toInt()
+
+                            if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+                                isDragging = true
+                                updateWindowPosition(initialX + deltaX, initialY + deltaY)
+                            }
+                            true
+                        }
+                        MotionEvent.ACTION_UP -> {
+                            // 如果是拖拽，则不触发点击
+                            !isDragging
+                        }
+                        else -> false
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error in touch listener", e)
+                    false
+                }
+            }
+        }
+    }
+
+    private fun updateWindowPosition(x: Int, y: Int) {
+        try {
+            floatingView?.let { view ->
+                val layoutParams = view.layoutParams as WindowManager.LayoutParams
+                layoutParams.x = x
+                layoutParams.y = y
+                windowManager?.updateViewLayout(view, layoutParams)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating window position", e)
         }
     }
 
     private fun hideFloatingWindow() {
-        floatingView?.let {
-            windowManager?.removeView(it)
-            floatingView = null
-            Log.d(TAG, "Floating window removed")
+        try {
+            floatingView?.let { view ->
+                windowManager?.removeView(view)
+                floatingView = null
+                Log.d(TAG, "Floating window removed")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error hiding floating window", e)
         }
     }
 }
