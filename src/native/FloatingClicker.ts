@@ -7,8 +7,7 @@ export interface FloatingPoint {
 }
 
 export interface FloatingClickerModule {
-  startFloatingWindow(points: FloatingPoint[]): Promise<boolean>;
-  startFloatingWindowTest(): Promise<boolean>;
+  startFloatingWindow(): Promise<boolean>;
   stopFloatingWindow(): Promise<boolean>;
   checkOverlayPermission(): Promise<boolean>;
   requestOverlayPermission(): Promise<boolean>;

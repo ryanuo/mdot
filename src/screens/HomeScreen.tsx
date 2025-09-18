@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View, ScrollView, AppState } from 'react-native';
-import { DraggablePoint } from '../components/DraggablePoint';
 import pointsData from '../config/points.json';
-import { loadPoints, savePoints } from '../utils/storage';
-import { FloatingPoint, FloatingClickerNative } from '../native/FloatingClicker';
+import { loadPoints} from '../utils/storage';
+import { FloatingClickerNative } from '../native/FloatingClicker';
 
 interface Point {
   id: string;
@@ -125,22 +124,8 @@ export const HomeScreen = () => {
     }
 
     try {
-      await FloatingClickerNative.startFloatingWindowTest();
+      await FloatingClickerNative.startFloatingWindow();
       setIsFloatingActive(true);
-      // Alert.alert(
-      //   '成功',
-      //   '悬浮窗已启动\n\n' +
-      //   '功能说明：\n' +
-      //   '• 蓝色按钮：点击点位\n' +
-      //   '• 绿色按钮：触发所有点位\n' +
-      //   '• 红色按钮：关闭悬浮窗\n' +
-      //   '• 可拖拽点位调整位置\n\n' +
-      //   '现在可以最小化应用使用',
-      //   [
-      //     { text: '确定', onPress: () => { } },
-      //     { text: '停止悬浮窗', onPress: stopFloatingWindow }
-      //   ]
-      // );
     } catch (error) {
       Alert.alert('错误', '无法启动悬浮窗');
     }
@@ -153,28 +138,6 @@ export const HomeScreen = () => {
       Alert.alert('成功', '悬浮窗已停止');
     } catch (error: any) {
       Alert.alert('错误', `无法停止悬浮窗: ${error.message}`);
-    }
-  };
-
-  const handlePointPositionChange = async (updatedPoint: FloatingPoint) => {
-    const newPoints = points.map(p =>
-      p.id === updatedPoint.id ? updatedPoint : p
-    );
-    setPoints(newPoints);
-    await savePoints(newPoints);
-  };
-
-  const handlePointPress = async (point: FloatingPoint) => {
-    if (isFloatingActive) {
-      try {
-        await FloatingClickerNative.triggerClick(point.x, point.y);
-        Alert.alert('点击', `已触发点位: ${point.id} 在坐标 (${point.x}, ${point.y})`);
-      } catch (error: any) {
-        console.error('Click error:', error);
-        Alert.alert('错误', `无法触发点击: ${error.message || '未知错误'}`);
-      }
-    } else {
-      Alert.alert('点击', `点击了单个点位: ${point.id}`);
     }
   };
 
@@ -254,25 +217,6 @@ export const HomeScreen = () => {
           <TouchableOpacity style={styles.controlButton} onPress={handleTriggerAll}>
             <Text style={styles.buttonText}>触发所有点位</Text>
           </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.pointsSection}>
-        <Text style={styles.sectionTitle}>点位配置</Text>
-        <Text style={styles.instruction}>
-          拖拽点位调整位置，点击点位进行测试
-        </Text>
-
-        <View style={styles.pointsContainer}>
-          {points.map(p => (
-            <DraggablePoint
-              key={p.id}
-              point={p}
-              onPositionChange={handlePointPositionChange}
-              onPress={handlePointPress}
-              isActive={isFloatingActive}
-            />
-          ))}
         </View>
       </View>
     </ScrollView>
@@ -401,30 +345,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  pointsSection: {
-    margin: 15,
-    padding: 15,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.22,
-    shadowRadius: 2.22,
-  },
-  instruction: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 15,
-    fontStyle: 'italic',
-  },
-  pointsContainer: {
-    height: 400,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    position: 'relative',
   },
 });

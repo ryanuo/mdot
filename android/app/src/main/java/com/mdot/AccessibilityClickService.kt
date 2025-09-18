@@ -8,13 +8,16 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 
 class AccessibilityClickService : AccessibilityService() {
-    
+
     companion object {
         private const val TAG = "AccessibilityClickService"
         private var instance: AccessibilityClickService? = null
-        
+
         fun getInstance(): AccessibilityClickService? = instance
-        
+
+        /**
+         * 提供外部调用的点击方法
+         */
         fun performClick(x: Float, y: Float): Boolean {
             val service = getInstance()
             return service?.performClickInternal(x, y) ?: false
@@ -28,7 +31,7 @@ class AccessibilityClickService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // We don't need to handle accessibility events for this use case
+        // 不需要处理辅助功能事件
     }
 
     override fun onInterrupt() {
@@ -42,37 +45,43 @@ class AccessibilityClickService : AccessibilityService() {
         Log.d(TAG, "Accessibility service destroyed")
     }
 
-    fun performClickInternal(x: Float, y: Float): Boolean {
+    private fun performClickInternal(x: Float, y: Float): Boolean {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                val path = Path()
-                path.moveTo(x, y)
-                
+                Log.d(TAG, "Attempting to perform click at ($x, $y)")
+
+                val path = Path().apply { moveTo(x, y) }
+
                 val gestureBuilder = GestureDescription.Builder()
-                gestureBuilder.addStroke(GestureDescription.StrokeDescription(path, 0, 100))
-                
+                gestureBuilder.addStroke(GestureDescription.StrokeDescription(path, 0, 200)) // 200ms 点击
+
                 val gesture = gestureBuilder.build()
-                
+
                 val success = dispatchGesture(gesture, object : GestureResultCallback() {
                     override fun onCompleted(gestureDescription: GestureDescription?) {
                         super.onCompleted(gestureDescription)
-                        Log.d(TAG, "Click gesture completed at ($x, $y)")
+                        Log.d(TAG, "Click gesture completed successfully at ($x, $y)")
                     }
 
                     override fun onCancelled(gestureDescription: GestureDescription?) {
                         super.onCancelled(gestureDescription)
-                        Log.e(TAG, "Click gesture cancelled at ($x, $y)")
+                        Log.e(TAG, "Click gesture was cancelled at ($x, $y)")
                     }
                 }, null)
-                
-                Log.d(TAG, "Gesture dispatch result: $success")
+
+                if (success) {
+                    Log.d(TAG, "Gesture dispatch initiated successfully at ($x, $y)")
+                } else {
+                    Log.e(TAG, "Failed to dispatch gesture at ($x, $y)")
+                }
+
                 success
             } else {
-                Log.e(TAG, "Gesture dispatch not supported on this Android version")
+                Log.e(TAG, "Gesture dispatch not supported on Android API ${Build.VERSION.SDK_INT}")
                 false
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error performing click", e)
+            Log.e(TAG, "Error performing click at ($x, $y)", e)
             false
         }
     }

@@ -19,28 +19,7 @@ class FloatingClickerModule(private val reactContext: ReactApplicationContext) :
     }
 
     @ReactMethod
-    fun startFloatingWindow(points: ReadableArray, promise: Promise) {
-        try {
-            val context = reactContext.applicationContext
-            if (!Settings.canDrawOverlays(context)) {
-                promise.reject("NO_OVERLAY_PERMISSION", "Overlay permission not granted")
-                return
-            }
-
-//            val intent = Intent(context, FloatingWindowService::class.java)
-////            intent.putExtra("points", convertReadableArrayToJson(points))
-//            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-//            context.startForegroundService(intent)
-
-            promise.resolve(true)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error starting floating window", e)
-            promise.reject("START_ERROR", e.message)
-        }
-    }
-
-    @ReactMethod
-    fun startFloatingWindowTest(promise: Promise) {
+    fun startFloatingWindow(promise: Promise) {
         try {
             // 使用 applicationContext 而不是 currentActivity
             val context = reactContext.applicationContext
@@ -108,7 +87,7 @@ class FloatingClickerModule(private val reactContext: ReactApplicationContext) :
             val context = reactContext.applicationContext
             val intent = Intent(context, FloatingWindowService::class.java)
             context.stopService(intent)
-            
+
             Log.d(TAG, "Floating window service stopped")
             promise.resolve(true)
         } catch (e: Exception) {
@@ -158,7 +137,7 @@ class FloatingClickerModule(private val reactContext: ReactApplicationContext) :
             val context = reactContext.applicationContext
             val enabledServices = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
             val packageName = context.packageName
-            
+
             // 尝试多种可能的服务名称格式
             val possibleServiceNames = listOf(
                 "$packageName/.AccessibilityClickService",
@@ -166,13 +145,13 @@ class FloatingClickerModule(private val reactContext: ReactApplicationContext) :
                 "com.mdot/.AccessibilityClickService",
                 "com.mdot/com.mdot.AccessibilityClickService"
             )
-            
+
             Log.d(TAG, "Package name: $packageName")
             Log.d(TAG, "Enabled services: $enabledServices")
-            
+
             var hasPermission = false
             var matchedServiceName = ""
-            
+
             for (serviceName in possibleServiceNames) {
                 Log.d(TAG, "Checking service name: $serviceName")
                 if (enabledServices?.contains(serviceName) == true) {
@@ -182,11 +161,11 @@ class FloatingClickerModule(private val reactContext: ReactApplicationContext) :
                     break
                 }
             }
-            
+
             val isServiceActive = AccessibilityClickService.getInstance() != null
-            
+
             Log.d(TAG, "Accessibility permission check: hasPermission=$hasPermission, matchedService=$matchedServiceName, isServiceActive=$isServiceActive")
-            
+
             // 如果权限已授予，即使服务实例暂时不可用也返回 true
             val result = hasPermission
             Log.d(TAG, "Final result: $result")
@@ -221,12 +200,12 @@ class FloatingClickerModule(private val reactContext: ReactApplicationContext) :
             val context = reactContext.applicationContext
             val packageName = context.packageName
             val serviceName = "$packageName/.AccessibilityClickService"
-            
+
             // 尝试通过设置禁用服务
             val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
-            
+
             Log.d(TAG, "Redirected to accessibility settings to disable service: $serviceName")
             promise.resolve(true)
         } catch (e: Exception) {
@@ -263,7 +242,7 @@ class FloatingClickerModule(private val reactContext: ReactApplicationContext) :
                 promise.reject("CLICK_ERROR", "无障碍服务实例不可用，请确保服务已启用并重新启动应用")
                 return
             }
-            
+
             val success = AccessibilityClickService.performClick(x.toFloat(), y.toFloat())
             if (success) {
                 Log.d(TAG, "Click triggered successfully at ($x, $y)")
@@ -283,14 +262,14 @@ class FloatingClickerModule(private val reactContext: ReactApplicationContext) :
         try {
             var successCount = 0
             var totalCount = 0
-            
+
             for (i in 0 until points.size()) {
                 val point = points.getMap(i)
                 if (point != null) {
                     val x = point.getInt("x")
                     val y = point.getInt("y")
                     totalCount++
-                    
+
                     val success = AccessibilityClickService.performClick(x.toFloat(), y.toFloat())
                     if (success) {
                         successCount++
@@ -298,12 +277,12 @@ class FloatingClickerModule(private val reactContext: ReactApplicationContext) :
                     } else {
                         Log.e(TAG, "Failed to trigger click $i at ($x, $y)")
                     }
-                    
+
                     // Small delay between clicks
                     Thread.sleep(100)
                 }
             }
-            
+
             if (successCount == totalCount && totalCount > 0) {
                 promise.resolve(true)
             } else {
@@ -337,24 +316,24 @@ class FloatingClickerModule(private val reactContext: ReactApplicationContext) :
             val enabledServices = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
             val packageName = context.packageName
             val serviceName = "$packageName/.AccessibilityClickService"
-            
+
             Log.d(TAG, "Force check - Package: $packageName")
             Log.d(TAG, "Force check - Service: $serviceName")
             Log.d(TAG, "Force check - Enabled services: $enabledServices")
-            
+
             val hasPermission = enabledServices?.contains(serviceName) == true
             val isServiceActive = AccessibilityClickService.getInstance() != null
-            
+
             Log.d(TAG, "Force check - hasPermission: $hasPermission")
             Log.d(TAG, "Force check - isServiceActive: $isServiceActive")
-            
+
             val result = mapOf(
                 "hasPermission" to hasPermission,
                 "isServiceActive" to isServiceActive,
                 "serviceName" to serviceName,
                 "enabledServices" to (enabledServices ?: "null")
             )
-            
+
             promise.resolve(result)
         } catch (e: Exception) {
             Log.e(TAG, "Error in force check", e)
