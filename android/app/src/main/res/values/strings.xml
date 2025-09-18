@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">MDot</string>
+    <string name="accessibility_service_description">MultiPoint Floating Clicker - Enables automated clicking on screen coordinates for accessibility and automation purposes.</string>
 </resources>

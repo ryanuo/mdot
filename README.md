@@ -1,97 +1,210 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# MultiPoint Floating Clicker
 
-# Getting Started
+A React Native Android application that displays configurable floating points on the top layer of any Android application. Users can drag points to adjust positions, and the agent can simulate clicks on underlying apps using Accessibility Service.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Features
 
-## Step 1: Start Metro
+### 🎯 Floating Overlay
+- Points are displayed above all apps using `TYPE_APPLICATION_OVERLAY`
+- Points are draggable and clickable
+- Multiple points can be added dynamically based on user configuration
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+### 🔄 Synchronized Clicks
+- Clicking a designated area or button triggers all configured points simultaneously
+- Each point can also be clicked individually to trigger its assigned action
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+### ♿ Accessibility Service Integration
+- Uses Accessibility Service to simulate touch events on underlying apps
+- Checks if Accessibility Service is enabled and prompts the user to activate it if not
+- Supports precise x, y coordinate targeting for automated clicks
 
-```sh
-# Using npm
-npm start
+### 💾 Configuration & Persistence
+- Points configuration is stored in JSON format
+- Positions are persisted locally using AsyncStorage
+- Users can modify positions by dragging points; changes are automatically saved
 
-# OR using Yarn
-yarn start
+### 🏗️ React Native + Kotlin Architecture
+- Frontend UI built with React Native + TypeScript for draggable points and user interaction
+- Native module in Kotlin exposes methods to start/stop floating window and trigger clicks
+- Kotlin service handles overlay window management and communicates with Accessibility Service
+
+## Prerequisites
+
+- React Native development environment set up
+- Android Studio with Android SDK
+- Android device or emulator (API level 21+)
+- Node.js 20+
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd MDot
 ```
 
-## Step 2: Build and run your app
+2. Install dependencies:
+```bash
+npm install
+```
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+3. For Android, navigate to the android directory and run:
+```bash
+cd android
+./gradlew clean
+cd ..
+```
 
-### Android
+## Usage
 
-```sh
-# Using npm
+### 1. Launch the App
+```bash
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
+### 2. Grant Permissions
+The app requires two critical permissions:
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+#### Overlay Permission
+- Tap "请求权限" (Request Permission) for overlay access
+- Go to Settings > Apps > MDot > Display over other apps
+- Enable the permission
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+#### Accessibility Permission
+- Tap "启用服务" (Enable Service) for accessibility access
+- Go to Settings > Accessibility > MultiPoint Floating Clicker
+- Enable the service
 
-```sh
-bundle install
+### 3. Configure Points
+- Drag the floating points to adjust their positions
+- Positions are automatically saved
+- Click individual points to test them
+
+### 4. Start Floating Window
+- Tap "启动悬浮窗" (Start Floating Window)
+- Points will now appear on top of all other apps
+- You can minimize the main app and use other applications
+
+### 5. Trigger Actions
+- Click individual floating points to trigger single clicks
+- Use the "Trigger All" button to click all points simultaneously
+- Points will simulate clicks on the underlying application
+
+### 6. Stop Floating Window
+- Return to the app and tap "停止悬浮窗" (Stop Floating Window)
+- Or stop the service from Android settings
+
+## Architecture
+
+### React Native Frontend
+- **HomeScreen**: Main configuration interface
+- **DraggablePoint**: Individual draggable point component
+- **FloatingClicker**: Native module interface
+
+### Android Native Components
+- **FloatingClickerModule**: React Native bridge module
+- **FloatingWindowService**: Manages the overlay window
+- **AccessibilityClickService**: Handles click simulation
+
+### Data Flow
+1. User configures points in React Native UI
+2. Points are saved to AsyncStorage
+3. Native module starts FloatingWindowService
+4. Service creates overlay with draggable points
+5. Accessibility service simulates clicks when triggered
+
+## Permissions Required
+
+- `SYSTEM_ALERT_WINDOW`: Display floating overlay
+- `BIND_ACCESSIBILITY_SERVICE`: Simulate clicks on other apps
+- `FOREGROUND_SERVICE`: Keep service running
+- `WAKE_LOCK`: Prevent device sleep during automation
+
+## Configuration
+
+### Points Configuration
+Points are stored in `src/config/points.json`:
+```json
+[
+  { "id": "point1", "x": 50, "y": 100 },
+  { "id": "point2", "x": 150, "y": 200 },
+  { "id": "point3", "x": 250, "y": 300 }
+]
 ```
 
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
+### Accessibility Service Configuration
+The accessibility service is configured in `android/app/src/main/res/xml/accessibility_service_config.xml`:
+```xml
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeAllMask"
+    android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/accessibility_service_description"
+    android:notificationTimeout="100"
+    android:packageNames="" />
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+## Development
 
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
+### Building for Release
+```bash
+cd android
+./gradlew assembleRelease
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+### Debugging
+- Use React Native debugger for frontend debugging
+- Use Android Studio for native debugging
+- Check logs with `adb logcat | grep -E "(FloatingClicker|AccessibilityClickService)"`
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+## Troubleshooting
 
-## Step 3: Modify your app
+### Common Issues
 
-Now that you have successfully run the app, let's make changes!
+1. **Overlay Permission Denied**
+   - Ensure the app has overlay permission in Android settings
+   - Restart the app after granting permission
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+2. **Accessibility Service Not Working**
+   - Verify the service is enabled in Accessibility settings
+   - Check that the service has the correct package name
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+3. **Points Not Clicking**
+   - Ensure the target app is visible and interactive
+   - Check that coordinates are within screen bounds
+   - Verify accessibility service is active
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+4. **Floating Window Not Showing**
+   - Check overlay permission
+   - Ensure the service is running
+   - Restart the app if needed
 
-## Congratulations! :tada:
+### Logs
+Check Android logs for debugging:
+```bash
+adb logcat | grep -E "(MDot|FloatingClicker|AccessibilityClickService)"
+```
 
-You've successfully run and modified your React Native App. :partying_face:
+## Security Considerations
 
-### Now what?
+- This app requires sensitive permissions (overlay and accessibility)
+- Only use on trusted devices
+- Be cautious when automating sensitive applications
+- The accessibility service can interact with any app on the device
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+## Contributing
 
-# Troubleshooting
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly on Android devices
+5. Submit a pull request
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+## License
 
-# Learn More
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-To learn more about React Native, take a look at the following resources:
+## Disclaimer
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+This tool is for educational and accessibility purposes. Users are responsible for complying with all applicable laws and terms of service when using this application. The developers are not responsible for any misuse of this software.
