@@ -10,9 +10,7 @@ import android.util.Log
 import android.view.*
 import android.widget.Button
 import android.widget.FrameLayout
-import android.widget.LinearLayout
 import androidx.core.app.NotificationCompat
-import org.json.JSONArray
 
 class FloatingWindowService : Service() {
 
@@ -23,22 +21,21 @@ class FloatingWindowService : Service() {
     }
 
     private var windowManager: WindowManager? = null
-    private var floatingView: View? = null
-    private var points: MutableList<FloatingPoint> = mutableListOf()
+    private var floatingView: FrameLayout? = null
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
+        Log.d(TAG, "Service onCreate")
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        createNotificationChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        intent?.getStringExtra("points")?.let { pointsJson ->
-            parsePoints(pointsJson)
-            showFloatingWindow()
-        }
-
+        Log.d(TAG, "Service onStartCommand")
+        // 必须立即启动前台服务
         startForeground(NOTIFICATION_ID, createNotification())
+
+        showFloatingWindow()
         return START_STICKY
     }
 
@@ -47,6 +44,7 @@ class FloatingWindowService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         hideFloatingWindow()
+        Log.d(TAG, "Service onDestroy")
     }
 
     private fun createNotificationChannel() {
@@ -55,9 +53,12 @@ class FloatingWindowService : Service() {
                 CHANNEL_ID,
                 "Floating Window Service",
                 NotificationManager.IMPORTANCE_LOW
-            ).apply { description = "Service for managing floating click points" }
+            ).apply {
+                description = "Service for managing floating buttons"
+            }
             val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
+            Log.d(TAG, "Notification channel created")
         }
     }
 
@@ -67,40 +68,21 @@ class FloatingWindowService : Service() {
             this, 0, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-
+        Log.d(TAG, "Notification created")
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("MultiPoint Floating Clicker")
-            .setContentText("Floating points are active")
+            .setContentTitle("Floating Clicker Active")
+            .setContentText("悬浮窗服务正在运行")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .build()
     }
 
-    private fun parsePoints(pointsJson: String) {
-        try {
-            val jsonArray = JSONArray(pointsJson)
-            points.clear()
-            for (i in 0 until jsonArray.length()) {
-                val pointJson = jsonArray.getJSONObject(i)
-                points.add(
-                    FloatingPoint(
-                        id = pointJson.getString("id"),
-                        x = pointJson.getInt("x"),
-                        y = pointJson.getInt("y")
-                    )
-                )
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error parsing points", e)
-        }
-    }
-
     private fun showFloatingWindow() {
+        Log.d(TAG, "Showing floating window")
         if (floatingView != null) hideFloatingWindow()
 
-        val layoutInflater = LayoutInflater.from(this)
-        floatingView = layoutInflater.inflate(R.layout.floating_window_layout, null)
+        floatingView = FrameLayout(this)
 
         val layoutParams = WindowManager.LayoutParams().apply {
             type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
@@ -110,8 +92,7 @@ class FloatingWindowService : Service() {
                 WindowManager.LayoutParams.TYPE_PHONE
 
             flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
 
             format = PixelFormat.TRANSLUCENT
             width = WindowManager.LayoutParams.MATCH_PARENT
@@ -119,138 +100,65 @@ class FloatingWindowService : Service() {
             gravity = Gravity.TOP or Gravity.START
         }
 
-        setupFloatingPoints()
-
         windowManager?.addView(floatingView, layoutParams)
-        Log.d(TAG, "Floating window shown with ${points.size} points")
+        Log.d(TAG, "Floating window added to WindowManager")
+
+        setupButtons(floatingView!!)
     }
 
-    private fun setupFloatingPoints() {
-        val container = floatingView?.findViewById<LinearLayout>(R.id.floating_container)
-        container?.removeAllViews()
-
-        // 添加点位按钮
-        points.forEach { point ->
-            val pointView = createFloatingPointView(point)
-            container?.addView(pointView)
-        }
-
-        // 控制按钮容器
-        val buttonContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ).apply { setMargins(50, 50, 0, 0) }
-        }
-
-        // 触发按钮
-        val triggerButton = Button(this).apply {
-            text = "触发所有"
-            textSize = 14f
-            setTextColor(android.graphics.Color.WHITE)
-            setBackgroundColor(android.graphics.Color.parseColor("#34C759"))
-            elevation = 10f
-            layoutParams = FrameLayout.LayoutParams(200, 80).apply {
-                leftMargin = 0
-                topMargin = 0
-            }
-            setOnClickListener { triggerAllPoints() }
-        }
-
-        // 关闭按钮
-        val closeButton = Button(this).apply {
-            text = "关闭"
-            textSize = 14f
-            setTextColor(android.graphics.Color.WHITE)
-            setBackgroundColor(android.graphics.Color.parseColor("#FF3B30"))
-            elevation = 10f
-            layoutParams = FrameLayout.LayoutParams(120, 80).apply {
-                leftMargin = 20
-                topMargin = 0
-            }
-            setOnClickListener {
-                hideFloatingWindow()
-                stopSelf()
-            }
-        }
-
-        buttonContainer.addView(triggerButton)
-        buttonContainer.addView(closeButton)
-        container?.addView(buttonContainer)
-    }
-
-    private fun createFloatingPointView(point: FloatingPoint): View {
-        return Button(this).apply {
-            text = point.id
-            textSize = 12f
-            setBackgroundColor(android.graphics.Color.parseColor("#007AFF"))
-            layoutParams = FrameLayout.LayoutParams(120, 120)
-            x = point.x.toFloat()
-            y = point.y.toFloat()
-            elevation = 10f
-
-            setOnClickListener { triggerSinglePoint(point) }
-
-            setOnTouchListener(object : View.OnTouchListener {
-                private var initialX = 0
-                private var initialY = 0
-                private var initialTouchX = 0f
-                private var initialTouchY = 0f
-
-                override fun onTouch(v: View, event: MotionEvent): Boolean {
-                    when (event.action) {
-                        MotionEvent.ACTION_DOWN -> {
-                            initialX = x.toInt()
-                            initialY = y.toInt()
-                            initialTouchX = event.rawX
-                            initialTouchY = event.rawY
-                            return true
-                        }
-                        MotionEvent.ACTION_MOVE -> {
-                            val deltaX = (event.rawX - initialTouchX).toInt()
-                            val deltaY = (event.rawY - initialTouchY).toInt()
-                            x = (initialX + deltaX).toFloat()
-                            y = (initialY + deltaY).toFloat()
-                            point.x = (initialX + deltaX)
-                            point.y = (initialY + deltaY)
-                            return true
-                        }
-                    }
-                    return false
+    private fun setupButtons(container: FrameLayout) {
+        val buttonNames = listOf("触发", "按钮2", "按钮3", "按钮4")
+        buttonNames.forEachIndexed { index, name ->
+            val btn = Button(this).apply {
+                text = name
+                textSize = 12f
+                setBackgroundColor(android.graphics.Color.parseColor("#007AFF"))
+                layoutParams = FrameLayout.LayoutParams(200, 120).apply {
+                    leftMargin = 50
+                    topMargin = 50 + index * 150
                 }
-            })
-        }
-    }
 
-    private fun triggerSinglePoint(point: FloatingPoint) {
-        Log.d(TAG, "Triggering single point: ${point.id} at (${point.x}, ${point.y})")
-        val intent = Intent(this, AccessibilityClickService::class.java).apply {
-            putExtra("action", "click")
-            putExtra("x", point.x.toFloat())
-            putExtra("y", point.y.toFloat())
-        }
-        startService(intent)
-    }
+                setOnClickListener {
+                    Log.d(TAG, "Button clicked: $name")
+                    // 这里可以执行对应操作
+                }
 
-    private fun triggerAllPoints() {
-        points.forEach {
-            triggerSinglePoint(it)
-            Thread.sleep(100)
+                setOnTouchListener(object : View.OnTouchListener {
+                    private var initialX = 0
+                    private var initialY = 0
+                    private var initialTouchX = 0f
+                    private var initialTouchY = 0f
+
+                    override fun onTouch(v: View, event: MotionEvent): Boolean {
+                        when (event.action) {
+                            MotionEvent.ACTION_DOWN -> {
+                                initialX = x.toInt()
+                                initialY = y.toInt()
+                                initialTouchX = event.rawX
+                                initialTouchY = event.rawY
+                                return true
+                            }
+                            MotionEvent.ACTION_MOVE -> {
+                                val deltaX = (event.rawX - initialTouchX).toInt()
+                                val deltaY = (event.rawY - initialTouchY).toInt()
+                                x = (initialX + deltaX).toFloat()
+                                y = (initialY + deltaY).toFloat()
+                                return true
+                            }
+                        }
+                        return false
+                    }
+                })
+            }
+            container.addView(btn)
         }
     }
 
     private fun hideFloatingWindow() {
-        floatingView?.let { view ->
-            windowManager?.removeView(view)
+        floatingView?.let {
+            windowManager?.removeView(it)
             floatingView = null
+            Log.d(TAG, "Floating window removed")
         }
-        Log.d(TAG, "Floating window hidden")
     }
-
-    data class FloatingPoint(
-        val id: String,
-        var x: Int,
-        var y: Int
-    )
 }

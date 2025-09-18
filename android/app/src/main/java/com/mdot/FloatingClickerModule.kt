@@ -20,28 +20,49 @@ class FloatingClickerModule(private val reactContext: ReactApplicationContext) :
     @ReactMethod
     fun startFloatingWindow(points: ReadableArray, promise: Promise) {
         try {
-            val context = reactContext.currentActivity
-            if (context == null) {
-                promise.reject("NO_ACTIVITY", "No current activity")
-                return
-            }
-
-            // Check if overlay permission is granted
+            val context = reactContext.applicationContext
             if (!Settings.canDrawOverlays(context)) {
                 promise.reject("NO_OVERLAY_PERMISSION", "Overlay permission not granted")
                 return
             }
 
-            val intent = Intent(context, FloatingWindowService::class.java)
-            intent.putExtra("points", convertReadableArrayToJson(points))
-            context.startForegroundService(intent)
-            
+//            val intent = Intent(context, FloatingWindowService::class.java)
+////            intent.putExtra("points", convertReadableArrayToJson(points))
+//            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+//            context.startForegroundService(intent)
+
             promise.resolve(true)
         } catch (e: Exception) {
             Log.e(TAG, "Error starting floating window", e)
             promise.reject("START_ERROR", e.message)
         }
     }
+
+    @ReactMethod
+    fun startFloatingWindowTest(promise: Promise) {
+        try {
+            val context = reactContext.currentActivity ?: run {
+                promise.reject("NO_ACTIVITY", "No current activity")
+                return
+            }
+
+            if (!Settings.canDrawOverlays(context)) {
+                promise.reject("NO_OVERLAY_PERMISSION", "Overlay permission not granted")
+                return
+            }
+
+            val intent = Intent(context, FloatingWindowService::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startForegroundService(intent) // ⚠️ 必须用前台服务
+
+            Log.d("FloatingClicker", "FloatingWindowService started")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            Log.e("FloatingClicker", "Error starting service", e)
+            promise.reject("ERROR", e.message)
+        }
+    }
+
 
     @ReactMethod
     fun stopFloatingWindow(promise: Promise) {

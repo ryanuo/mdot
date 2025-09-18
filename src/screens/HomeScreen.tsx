@@ -125,22 +125,22 @@ export const HomeScreen = () => {
     }
 
     try {
-      await FloatingClickerNative.startFloatingWindow(points);
+      await FloatingClickerNative.startFloatingWindowTest();
       setIsFloatingActive(true);
-      Alert.alert(
-        '成功',
-        '悬浮窗已启动\n\n' +
-        '功能说明：\n' +
-        '• 蓝色按钮：点击点位\n' +
-        '• 绿色按钮：触发所有点位\n' +
-        '• 红色按钮：关闭悬浮窗\n' +
-        '• 可拖拽点位调整位置\n\n' +
-        '现在可以最小化应用使用',
-        [
-          { text: '确定', onPress: () => { } },
-          { text: '停止悬浮窗', onPress: stopFloatingWindow }
-        ]
-      );
+      // Alert.alert(
+      //   '成功',
+      //   '悬浮窗已启动\n\n' +
+      //   '功能说明：\n' +
+      //   '• 蓝色按钮：点击点位\n' +
+      //   '• 绿色按钮：触发所有点位\n' +
+      //   '• 红色按钮：关闭悬浮窗\n' +
+      //   '• 可拖拽点位调整位置\n\n' +
+      //   '现在可以最小化应用使用',
+      //   [
+      //     { text: '确定', onPress: () => { } },
+      //     { text: '停止悬浮窗', onPress: stopFloatingWindow }
+      //   ]
+      // );
     } catch (error) {
       Alert.alert('错误', '无法启动悬浮窗');
     }
